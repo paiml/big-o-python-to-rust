@@ -1,0 +1,78 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    O(2^n) exponential-time complexity contract. An operation satisfies
+    this contract iff its mean execution time doubles when n increases
+    by one, verified across at least five consecutive n values. The
+    canonical realization is naive recursion without memoization
+    (e.g. unmemoized Fibonacci).
+  references:
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms, 15 (dynamic programming)'
+    - 'Knuth — TAOCP Vol 1, 1.2.8 (Fibonacci, naive vs memoized)'
+    - 'criterion.rs documentation, statistical reporting'
+
+equations:
+  exponential_time_bound:
+    formula: |
+      forall n in input_sizes:
+        mean(t(n+1)) / mean(t(n)) in [1.8, 2.2]
+      input_sizes = {20, 21, 22, 23, 24, 25}.
+      A unit step in n doubles the work for any operation whose
+      recurrence is T(n) = T(n-1) + T(n-2) + O(1) ~ phi^n ≈ 1.618^n;
+      bound widened to capture phi as well as pure 2^n recurrences.
+    domain: 'criterion benchmarks with n stepping by 1'
+    invariants:
+      - "each unit step in n multiplies work by a factor in [1.8, 2.2]"
+      - "top input size kept small to avoid timing out the bench"
+      - "memoization rescues to O(n) — this is the failure-loop lesson"
+    preconditions:
+      - "n steps by 1 across at least 5 consecutive values"
+    postconditions:
+      - "the fitted complexity class is O(2^n) or O(phi^n) with R^2 >= 0.95"
+
+proof_obligations:
+  - type: invariant
+    property: unit-step ratio in [1.8, 2.2]
+    formal: 'forall n in input_sizes, mean(t(n+1)) / mean(t(n)) in [1.8, 2.2]'
+    applies_to: exponential_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.ExponentialTime
+      status: not-applicable
+  - type: invariant
+    property: recurrence resolves to phi^n
+    formal: 'T(n) = T(n-1) + T(n-2) + Theta(1) ==> T(n) = Theta(phi^n) where phi = (1+sqrt(5))/2'
+    applies_to: exponential_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.FibonacciClosedForm
+      status: proved
+
+falsification_tests:
+  - id: FALSIFY-EX-001
+    rule: unit-step ratio in [1.8, 2.2]
+    prediction: 'mean(t(n+1)) / mean(t(n)) stays in [1.8, 2.2] for consecutive n'
+    test: criterion bench over n in {20..25}, assert ratio bounds
+    if_fails: 'observed growth is sub-exponential; tail-call optimisation is reducing the cost'
+  - id: FALSIFY-EX-002
+    rule: recurrence resolves to phi^n
+    prediction: 'Lean proof BigOFromZero.Theorems.FibonacciClosedForm type-checks'
+    test: 'cd lean && lake build BigOFromZero.Theorems.FibonacciClosedForm'
+    if_fails: 'the closed-form proof is stuck (sorry) or wrong'
+
+kani_harnesses:
+  - id: KANI-EX-001
+    obligation: unit-step ratio in [1.8, 2.2]
+    bound: 8
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-EX-001
+  name: complexity-exponential-v1 Contract
+  description: Quality gate for O(2^n) empirical + structural complexity
+  checks:
+    - validation
+    - falsification
+    - criterion-bench
+    - lean-build

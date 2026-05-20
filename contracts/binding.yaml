@@ -1,0 +1,73 @@
+# Contract → Rust binding manifest for big-o-python-to-rust.
+#
+# Each entry binds a YAML contract to one or more Rust crates in the
+# workspace. The criterion benchmark + proptest harness in the crate
+# is the empirical proof; the optional Lean theorem is the formal
+# proof for the structural contracts in M3.
+
+version: 1.0.0
+
+bindings:
+  complexity-constant-v1:
+    description: O(1) constant-time empirical contract
+    rust_crates:
+      - m2-empirical
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.ConstantTime
+    runtime_marker: "contract: complexity-constant-v1 holds — OK"
+
+  complexity-logarithmic-v1:
+    description: O(log n) logarithmic-time empirical contract
+    rust_crates:
+      - m2-empirical
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.LogarithmicTime
+    runtime_marker: "contract: complexity-logarithmic-v1 holds — OK"
+
+  complexity-linear-v1:
+    description: O(n) linear-time empirical contract
+    rust_crates:
+      - m2-empirical
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.LinearTime
+    runtime_marker: "contract: complexity-linear-v1 holds — OK"
+
+  complexity-linearithmic-v1:
+    description: O(n log n) linearithmic-time empirical + structural contract
+    rust_crates:
+      - m2-empirical
+      - m3-structural
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.LinearithmicTime
+    runtime_marker: "contract: complexity-linearithmic-v1 holds — OK"
+
+  complexity-quadratic-v1:
+    description: O(n²) quadratic-time empirical contract
+    rust_crates:
+      - m2-empirical
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.QuadraticTime
+    runtime_marker: "contract: complexity-quadratic-v1 holds — OK"
+
+  complexity-exponential-v1:
+    description: O(2ⁿ) exponential-time empirical + structural contract
+    rust_crates:
+      - m2-empirical
+      - m3-structural
+      - m5-capstone
+    lean_module: BigOFromZero.Theorems.ExponentialTime
+    runtime_marker: "contract: complexity-exponential-v1 holds — OK"
+
+  iterator-fusion-v1:
+    description: Zero-cost iterator chain contract (no intermediate alloc)
+    rust_crates:
+      - m2-empirical
+    lean_module: BigOFromZero.Theorems.IteratorFusion
+    runtime_marker: "contract: iterator-fusion-v1 holds — OK"
+
+  complexity-preserved-across-transpile-v1:
+    description: depyler transpile preserves Big O complexity class
+    rust_crates:
+      - m2-empirical
+    lean_module: null
+    runtime_marker: "contract: complexity-preserved-across-transpile-v1 holds — OK"

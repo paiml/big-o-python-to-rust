@@ -1,0 +1,82 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    Transpile-preservation contract. Given a Python source program S
+    and its depyler-transpiled Rust output R = depyler(S), this
+    contract holds iff R sits in the same Big O complexity class as S
+    when both are measured empirically over the same input
+    distribution. Constant-factor speedup is permitted and quantified,
+    but a class change (e.g. O(n) -> O(log n)) violates the contract
+    and surfaces as a course teaching moment (M2.x of big-o-python-to-rust).
+  references:
+    - 'depyler v4.1+ — Python-to-Rust transpiler with semantic verification'
+    - 'aprender-complexity-contracts — empirical complexity contracts (this repo)'
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms (complexity classes)'
+
+equations:
+  class_preservation:
+    formula: |
+      Let class_emp(S) be the empirical complexity class fitted by
+      complexity-{constant,log,linear,linearithmic,quadratic,exponential}-v1
+      against S. Then:
+        class_emp(depyler(S)) == class_emp(S)
+      i.e. the fitted class for the transpiled Rust matches the fitted
+      class for the Python source within the contract's R^2 threshold.
+    domain: 'paired Python + depyler-transpiled Rust over same input set'
+    invariants:
+      - "empirical class identical between Python source and Rust output"
+      - "depyler output passes its own semantic-equivalence contract"
+      - "constant-factor speedup is the expected delta (Rust faster)"
+    preconditions:
+      - "depyler successfully transpiles S"
+      - "same input distribution feeds both timings"
+      - "at least 5 input sizes sampled"
+    postconditions:
+      - "class_emp(depyler(S)) == class_emp(S)"
+      - "speedup_factor(S -> depyler(S)) is reported (informational)"
+
+proof_obligations:
+  - type: invariant
+    property: class preservation across transpile
+    formal: 'forall S in corpus, class_emp(depyler(S)) = class_emp(S)'
+    applies_to: class_preservation
+    lean:
+      theorem: BigOFromZero.Theorems.TranspilePreservesClass
+      status: not-applicable
+  - type: postcondition
+    property: constant-factor speedup is reported
+    formal: 'speedup(S) = mean(t_py(S)) / mean(t_rs(depyler(S))) is recorded'
+    applies_to: class_preservation
+    lean:
+      theorem: BigOFromZero.Theorems.TranspileSpeedupReport
+      status: not-applicable
+
+falsification_tests:
+  - id: FALSIFY-TP-001
+    rule: class preservation across transpile
+    prediction: 'class_emp(depyler(S)) equals class_emp(S) across the corpus'
+    test: per-program harness — fit class on Python via timeit, fit class on Rust via criterion, assert equality
+    if_fails: 'depyler changed the complexity class (e.g. list.insert(0,x) → VecDeque::push_front improves O(n) to O(1)) — surface as teaching moment'
+  - id: FALSIFY-TP-002
+    rule: constant-factor speedup is reported
+    prediction: 'speedup(S) is captured in the criterion JSON report and bounded above 1.0'
+    test: criterion JSON parser; assert speedup field present and > 1.0
+    if_fails: 'either the speedup is below 1.0 (Rust slower — measurement bug) or the report omits the field'
+
+kani_harnesses:
+  - id: KANI-TP-001
+    obligation: class preservation across transpile
+    bound: 8
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-TP-001
+  name: complexity-preserved-across-transpile-v1 Contract
+  description: Quality gate for depyler complexity-class preservation
+  checks:
+    - validation
+    - falsification
+    - criterion-bench

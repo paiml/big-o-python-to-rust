@@ -1,0 +1,24 @@
+[package]
+name = "m3-structural"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Structural complexity proofs: master theorem + amortized analysis"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "m3-structural-demo"
+path = "src/main.rs"
+
+[dependencies]
+m2-empirical = { path = "../m2-empirical" }
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

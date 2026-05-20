@@ -1,0 +1,25 @@
+[package]
+name = "m5-capstone"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Capstone: characterize a novel algorithm (top-K hot keys) across all three modes"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "m5-capstone"
+path = "src/main.rs"
+
+[dependencies]
+m2-empirical = { path = "../m2-empirical" }
+
+[dev-dependencies]
+proptest.workspace = true
+m2-empirical = { path = "../m2-empirical" }
+
+[lints]
+workspace = true

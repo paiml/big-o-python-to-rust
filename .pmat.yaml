@@ -1,0 +1,25 @@
+# PMAT Compliance Configuration
+# See: pmat comply check --help
+
+comply:
+  # Check configurations (disable individual checks)
+  checks:
+    cb-050: { enabled: true, severity: critical }
+    cb-060: { enabled: true, severity: error }
+  # Global thresholds
+  thresholds:
+    coverage: 85.0
+    complexity: 20
+    dead_code_pct: 5.0
+  # Suppression rules for false positives
+  # suppressions:
+  #   - rules: ["CB-954"]
+  #     reason: "max_tokens is an LLM parameter, not a secret"
+  #   - rules: ["CB-501"]
+  #     files: ["examples/**"]
+  #     reason: "Examples use unwrap for brevity"
+  #     expires: "2026-12-31"
+
+quality:
+  tdg_enabled: true
+  min_tdg_score: 70.0

@@ -1,0 +1,76 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    O(log n) logarithmic-time complexity contract. An operation
+    satisfies this contract iff its mean execution time grows by at
+    most a small additive constant as n doubles, verified empirically
+    by criterion across n ∈ {64, 1024, 16384, 262144, 4194304}.
+  references:
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms, 12.2 (binary search)'
+    - 'Knuth — TAOCP Vol 3, 6.2.1 (sorted arrays)'
+    - 'criterion.rs documentation, statistical reporting'
+
+equations:
+  log_time_bound:
+    formula: |
+      forall n in input_sizes:
+        mean(t(2n)) - mean(t(n)) <= C
+      where C is a per-benchmark constant (extracted from the smallest
+      pair) and input_sizes = {64, 1024, 16384, 262144, 4194304}.
+      The doubling pattern lets log_2(n) advance by 1 each step.
+    domain: 'criterion benchmarks over doubling input sizes'
+    invariants:
+      - "each doubling of n adds at most a fixed additive cost"
+      - "number of operations on the hot path is O(log n)"
+      - "common Rust realizations: slice::binary_search, BTreeMap::get"
+    preconditions:
+      - "input sizes form a geometric sequence with ratio 2"
+      - "at least 5 doublings sampled"
+    postconditions:
+      - "the fitted complexity class is O(log n) with R² >= 0.90"
+
+proof_obligations:
+  - type: invariant
+    property: additive constant cost per doubling
+    formal: 'forall n in input_sizes, mean(t(2n)) - mean(t(n)) <= C'
+    applies_to: log_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.LogarithmicTime
+      status: not-applicable
+  - type: invariant
+    property: hot-path operation count is logarithmic
+    formal: 'forall n, ops(n) <= ceil(log2(n)) + 1'
+    applies_to: log_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.LogOpCount
+      status: not-applicable
+
+falsification_tests:
+  - id: FALSIFY-CL-001
+    rule: additive constant cost per doubling
+    prediction: 'mean(t(2n)) - mean(t(n)) does not grow with n'
+    test: criterion bench over doubling sizes, fit linear vs log models, log wins
+    if_fails: 'observed growth is linear; the operation is O(n), not O(log n)'
+  - id: FALSIFY-CL-002
+    rule: hot-path operation count is logarithmic
+    prediction: 'counted ops <= ceil(log2(n)) + 1 across all sampled n'
+    test: 'instrumented binary_search; assert step counter against ceil(log2(n)) + 1'
+    if_fails: 'operation is doing linear scans somewhere on the hot path'
+
+kani_harnesses:
+  - id: KANI-CL-001
+    obligation: hot-path operation count is logarithmic
+    bound: 16
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-CL-001
+  name: complexity-logarithmic-v1 Contract
+  description: Quality gate for O(log n) empirical complexity
+  checks:
+    - validation
+    - falsification
+    - criterion-bench

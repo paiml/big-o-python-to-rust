@@ -1,0 +1,89 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    Iterator-fusion contract. A chained Rust iterator expression
+    satisfies this contract iff the compiled assembly contains no
+    intermediate Vec allocation for the chain, AND the criterion
+    wall-clock time of the fused chain is within 1.0x of the
+    hand-written loop equivalent (i.e. zero-cost abstraction).
+  references:
+    - 'Rust by Example - Iterator adapters (fused, lazy, allocation-free)'
+    - 'The Rust Reference - 9.2 (zero-cost abstractions)'
+    - 'cargo-show-asm - inspecting compiled assembly'
+
+equations:
+  fused_chain:
+    formula: |
+      Given iterator chain C = src.iter().filter(p).map(f).sum(),
+      fused_chain(C) holds iff:
+        (1) compiled asm contains no `__rust_alloc` for an intermediate Vec
+        (2) wall_clock(C) / wall_clock(handwritten_loop) in [0.9, 1.1]
+    domain: 'release-mode compiled Rust + criterion benchmarks'
+    invariants:
+      - "no intermediate Vec allocation in the fused chain"
+      - "same Big O class as the equivalent hand-written loop"
+      - "within 10% wall-clock time of the hand-written equivalent"
+    preconditions:
+      - "build profile is release with lto=true"
+      - "chain terminates in a non-collecting sink (sum, count, fold)"
+    postconditions:
+      - "iterator chain produces identical results to hand-written loop"
+
+proof_obligations:
+  - type: invariant
+    property: no intermediate allocation
+    formal: 'asm(release(chain)) does not contain __rust_alloc symbol'
+    applies_to: fused_chain
+    lean:
+      theorem: BigOFromZero.Theorems.IteratorFusionNoAlloc
+      status: not-applicable
+  - type: invariant
+    property: wall-clock parity with hand loop
+    formal: 't(chain) / t(hand_loop) in [0.9, 1.1]'
+    applies_to: fused_chain
+    lean:
+      theorem: BigOFromZero.Theorems.IteratorFusionParity
+      status: not-applicable
+  - type: postcondition
+    property: result equivalence
+    formal: 'forall input, chain(input) == hand_loop(input)'
+    applies_to: fused_chain
+    lean:
+      theorem: BigOFromZero.Theorems.IteratorFusionEquivalence
+      status: not-applicable
+
+falsification_tests:
+  - id: FALSIFY-IF-001
+    rule: no intermediate allocation
+    prediction: 'cargo-show-asm of the chain shows zero __rust_alloc symbols'
+    test: 'cargo-show-asm bench harness; grep for __rust_alloc in the chain function'
+    if_fails: 'the optimizer is NOT fusing; intermediate Vec allocation present'
+  - id: FALSIFY-IF-002
+    rule: wall-clock parity with hand loop
+    prediction: 't(chain) / t(hand_loop) lies in [0.9, 1.1]'
+    test: criterion paired-bench, compute ratio, assert bounds
+    if_fails: 'fused chain is materially slower than hand loop — abstraction is not zero-cost here'
+  - id: FALSIFY-IF-003
+    rule: result equivalence
+    prediction: 'proptest over inputs yields chain(x) == hand_loop(x)'
+    test: 'proptest::proptest! over random inputs; assert chain(x) == hand_loop(x)'
+    if_fails: 'a fused operator is incorrect (off-by-one, fold direction wrong)'
+
+kani_harnesses:
+  - id: KANI-IF-001
+    obligation: result equivalence
+    bound: 16
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-IF-001
+  name: iterator-fusion-v1 Contract
+  description: Quality gate for zero-cost iterator chains
+  checks:
+    - validation
+    - falsification
+    - asm-inspection
+    - criterion-bench

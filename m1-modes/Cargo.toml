@@ -1,0 +1,21 @@
+[package]
+name = "m1-modes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tour of the three modes of proof — empirical, structural, formal"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "m1-tour"
+path = "src/main.rs"
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,76 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    O(n^2) quadratic-time complexity contract. An operation satisfies
+    this contract iff its mean execution time quadruples when n
+    doubles, within statistical CI bounds. The canonical realization
+    is nested iteration over all pairs (i, j) with i, j in 0..n.
+  references:
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms, 2.1 (insertion sort)'
+    - 'Knuth — TAOCP Vol 3, 5.2.1 (sorting by insertion)'
+    - 'criterion.rs documentation, statistical reporting'
+
+equations:
+  quadratic_time_bound:
+    formula: |
+      forall n in input_sizes:
+        mean(t(2n)) / mean(t(n)) in [3.6, 4.4]
+      input_sizes = {128, 256, 512, 1024, 2048}.
+      The upper bound is kept tight because cache effects in this
+      regime are dominated by the n^2 work, not the working-set fit.
+    domain: 'criterion benchmarks over doubling input sizes <= 2048'
+    invariants:
+      - "each doubling of n quadruples execution time within [3.6, 4.4]"
+      - "pair iteration is the canonical hot path"
+    preconditions:
+      - "input sizes form a geometric sequence with ratio 2"
+      - "at least 4 doublings sampled"
+      - "top input size kept moderate to stay inside L2/L3 cache"
+    postconditions:
+      - "the fitted complexity class is O(n^2) with R^2 >= 0.95"
+
+proof_obligations:
+  - type: invariant
+    property: doubling ratio in [3.6, 4.4]
+    formal: 'forall n in input_sizes, mean(t(2n)) / mean(t(n)) in [3.6, 4.4]'
+    applies_to: quadratic_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.QuadraticTime
+      status: not-applicable
+  - type: invariant
+    property: pair iteration count is n^2
+    formal: 'forall n, pair_visits(n) = n * n'
+    applies_to: quadratic_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.QuadraticPairCount
+      status: not-applicable
+
+falsification_tests:
+  - id: FALSIFY-QD-001
+    rule: doubling ratio in [3.6, 4.4]
+    prediction: 'mean(t(2n)) / mean(t(n)) lies in [3.6, 4.4] for every consecutive doubling'
+    test: criterion bench, compute ratio table, assert bounds
+    if_fails: 'operation is sub-quadratic (good — promote to O(n log n)) or super-quadratic (broken)'
+  - id: FALSIFY-QD-002
+    rule: pair iteration count is n^2
+    prediction: 'counted pair visits equal n*n for sampled n'
+    test: 'instrumented counter inside nested loops; assert count = n*n'
+    if_fails: 'inner loop short-circuits — operation is sub-quadratic'
+
+kani_harnesses:
+  - id: KANI-QD-001
+    obligation: pair iteration count is n^2
+    bound: 8
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-QD-001
+  name: complexity-quadratic-v1 Contract
+  description: Quality gate for O(n^2) empirical complexity
+  checks:
+    - validation
+    - falsification
+    - criterion-bench

@@ -1,0 +1,21 @@
+[package]
+name = "m4-systems"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cache + parallel complexity — extending the empirical/structural toolkit to systems concerns"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "m4-systems-demo"
+path = "src/main.rs"
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

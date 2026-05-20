@@ -1,0 +1,75 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    O(1) constant-time complexity contract. An operation satisfies this
+    contract iff its mean execution time is bounded by a constant
+    independent of input size n, verified empirically by criterion's
+    statistical CIs across n ∈ {10, 100, 1000, 10000, 100000}.
+  references:
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms, 3.1'
+    - 'Knuth — TAOCP Vol 1, 1.2.10'
+    - 'criterion.rs documentation, statistical reporting'
+
+equations:
+  constant_time_bound:
+    formula: |
+      forall n1, n2 in input_sizes, with n1 < n2:
+        mean(t(n2)) / mean(t(n1)) ∈ [0.85, 1.15]
+      where input_sizes = {10, 100, 1000, 10000, 100000}
+      and each mean is taken from criterion's sample.
+    domain: 'criterion benchmarks with statistical sampling'
+    invariants:
+      - "operation completes in time independent of input size n"
+      - "the 95% CI ratio across any two input sizes is in [0.85, 1.15]"
+      - "no allocation that scales with n on the hot path"
+    preconditions:
+      - "input size n is varied across at least 5 magnitudes"
+      - "at least 100 samples per benchmark (criterion default)"
+    postconditions:
+      - "the fitted complexity class is O(1) with R² >= 0.95"
+
+proof_obligations:
+  - type: invariant
+    property: time ratio bounded across input sizes
+    formal: 'forall n1, n2 in input_sizes, mean(t(n2)) / mean(t(n1)) in [0.85, 1.15]'
+    applies_to: constant_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.ConstantTime
+      status: not-applicable
+  - type: invariant
+    property: no allocation scaling with n
+    formal: 'forall n, allocations(n) = O(1)'
+    applies_to: constant_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.ConstantNoAlloc
+      status: not-applicable
+
+falsification_tests:
+  - id: FALSIFY-CC-001
+    rule: time ratio bounded across input sizes
+    prediction: 'mean(t(2n)) / mean(t(n)) stays in [0.85, 1.15] for n in {10, 100, 1000, 10000, 100000}'
+    test: criterion bench over geometric input sizes, assert ratio bounds
+    if_fails: 'operation is not O(1); the fitted class is O(n) or worse'
+  - id: FALSIFY-CC-002
+    rule: no allocation scaling with n
+    prediction: heap_alloc_count(n) is constant or zero
+    test: 'cargo test under dhat-rs allocator; assert max_blocks does not grow with n'
+    if_fails: 'operation allocates per-element work; hidden O(n) on the path'
+
+kani_harnesses:
+  - id: KANI-CC-001
+    obligation: time ratio bounded across input sizes
+    bound: 8
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-CC-001
+  name: complexity-constant-v1 Contract
+  description: Quality gate for O(1) constant-time empirical complexity
+  checks:
+    - validation
+    - falsification
+    - criterion-bench

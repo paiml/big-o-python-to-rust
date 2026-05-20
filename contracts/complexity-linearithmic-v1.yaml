@@ -1,0 +1,77 @@
+metadata:
+  version: 1.0.0
+  created: '2026-05-19'
+  author: paiml big-o-python-to-rust
+  description: |
+    O(n log n) linearithmic-time complexity contract. An operation
+    satisfies this contract iff a least-squares fit of the model
+    t(n) = a * n * log2(n) + b achieves R² >= 0.95 across at least
+    five sampled input sizes. The natural realization is Vec::sort
+    (Timsort / pdqsort hybrid), heap construction-then-pop, or
+    comparison-based merge.
+  references:
+    - 'Cormen, Leiserson, Rivest, Stein — Introduction to Algorithms, 8.1'
+    - 'Knuth — TAOCP Vol 3, 5.2.4 (sorting by merging)'
+    - 'Rust stdlib slice::sort - pdqsort implementation'
+
+equations:
+  linearithmic_time_bound:
+    formula: |
+      Let model(n) = a * n * log2(n) + b
+      Fit (a, b) by least squares against {(n_i, mean(t(n_i)))}.
+      Contract holds iff R^2(fit) >= 0.95 across the sample.
+    domain: 'criterion benchmarks over doubling input sizes >= 1024'
+    invariants:
+      - "O(n log n) fit beats the O(n) and O(n^2) fits on R^2"
+      - "comparison count is bounded by n * ceil(log2(n)) + O(n)"
+    preconditions:
+      - "input sizes form a geometric sequence with ratio 2"
+      - "at least 5 doublings sampled"
+    postconditions:
+      - "the fitted complexity class is O(n log n) with R^2 >= 0.95"
+      - "both alternatives (linear, quadratic) have lower R^2 on this data"
+
+proof_obligations:
+  - type: invariant
+    property: linearithmic fit dominates
+    formal: 'R^2(n log n) >= max(R^2(linear), R^2(quadratic)) AND R^2(n log n) >= 0.95'
+    applies_to: linearithmic_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.LinearithmicTime
+      status: not-applicable
+  - type: invariant
+    property: master theorem applicability
+    formal: 'for T(n) = 2 T(n/2) + O(n), master case 2 gives T(n) = Theta(n log n)'
+    applies_to: linearithmic_time_bound
+    lean:
+      theorem: BigOFromZero.Theorems.MasterTheoremCase2
+      status: proved
+
+falsification_tests:
+  - id: FALSIFY-NL-001
+    rule: linearithmic fit dominates
+    prediction: 'n log n least-squares fit has R^2 >= 0.95 and beats linear/quadratic'
+    test: criterion + fit harness; assert R^2 bound and dominance over alternatives
+    if_fails: 'operation is not O(n log n); cache or branch effects dominate'
+  - id: FALSIFY-NL-002
+    rule: master theorem applicability
+    prediction: 'a Lean proof of MasterTheoremCase2 type-checks under lake build'
+    test: 'cd lean && lake build BigOFromZero.Theorems.MasterTheoremCase2'
+    if_fails: 'the formal proof is stuck (sorry) or wrong; the structural argument is broken'
+
+kani_harnesses:
+  - id: KANI-NL-001
+    obligation: linearithmic fit dominates
+    bound: 16
+    strategy: bounded_int
+    solver: cadical
+
+qa_gate:
+  id: F-NL-001
+  name: complexity-linearithmic-v1 Contract
+  description: Quality gate for O(n log n) empirical + structural complexity
+  checks:
+    - validation
+    - falsification
+    - criterion-bench
+    - lean-build
